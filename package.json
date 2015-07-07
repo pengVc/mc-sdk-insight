@@ -1,0 +1,12 @@
+{
+  "name": "mc-sdk-insight",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/lantutech/mc-sdk-insight"
+  },
+  "author": "LantuTech"
+}

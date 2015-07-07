@@ -1,0 +1,197 @@
+{
+
+    "root": true,
+
+    "env": {
+        "browser": true
+    },
+
+    "parserOptions": {
+        "ecmaVersion": 2015,
+        "sourceType" : "module"
+    },
+
+    "rules": {
+
+        /* ------- 强制约定 ------- */
+
+        // 引号
+        "quotes": [
+            "error",
+            "double",
+            {
+                "allowTemplateLiterals": true
+            }
+        ],
+
+        // 代码缩进
+        "indent": [
+            "warn",
+            "tab", {
+                "SwitchCase": 1,
+                "MemberExpression": 1,
+                "outerIIFEBody": 1
+            }
+        ],
+
+        // 缩进中 空格和tab 策略:
+        //  - tab 用于缩进
+        //  - sapce 用于对齐
+        "no-mixed-spaces-and-tabs": [
+            "error",
+            "smart-tabs"
+        ],
+
+        /* ------- 风格 ------- */
+
+        // 行尾结束风格
+        "linebreak-style": [
+            "error",
+            "unix"
+        ],
+
+        // 逗号风格
+        "comma-style": [
+            "error",
+            "last"
+        ],
+
+        // 函数风格
+        "func-style": [
+            "warn",
+            "declaration"
+        ],
+
+        // 括号风格
+        "brace-style": [
+            "warn",
+            "1tbs",
+            {
+                "allowSingleLine": true
+            }
+        ],
+
+        /* ------- 括号 ------- */
+
+        // 块级作用域花括号
+        "curly": [
+            "error",
+            "all"
+        ],
+
+        /* ------- 空格(空白) ------- */
+
+        // 块级作用域内空白
+        "block-spacing": [
+            "warn",
+            "always"
+        ],
+
+        // 逗号前后空白
+        "comma-spacing": [
+            "warn",
+            {
+                "before": false,
+                "after": true
+            }
+        ],
+
+        // 对象花括号内空白
+        "object-curly-spacing": [
+            "off",
+            "always"
+        ],
+
+        // 对象属性前空格
+        "no-whitespace-before-property": "error",
+
+        // 注释空白
+        "spaced-comment": [
+            "off",
+            "always",
+            {
+                "exceptions": [
+                    "-",
+                    "+"
+                ]
+            }
+        ],
+
+        // 圆括号内空格
+        "space-in-parens": [
+            "warn",
+            "never"
+        ],
+
+        // 一元运算符两旁空白
+        "space-unary-ops": [
+            "warn",
+            {
+                "words": true,
+                "nonwords": false
+            }
+        ],
+
+        // 中缀运算符两旁空格
+        "space-infix-ops": [
+            "warn",
+            {
+                "int32Hint": false
+            }
+        ],
+
+        // 语法块(花括号)之前空格
+        "space-before-blocks": [
+            "warn",
+            {
+                "functions": "never",
+                "keywords": "never",
+                "classes": "never"
+            }
+        ],
+
+        // 函数定义(圆括号)之前空格
+        "space-before-function-paren": [
+            "warn",
+            {
+                "anonymous": "never",
+                "named": "never",
+                "asyncArrow": "never"
+            }
+        ],
+
+        // 函数、方法调用(圆括号)之前空格
+        "func-call-spacing": [
+            "error",
+            "never"
+        ],
+
+
+        /* ------- Misc ------- */
+
+        "no-var": [
+            "off"
+        ],
+
+        // 括号内换行
+        "object-curly-newline": [
+            "warn",
+            {
+                "consistent": true
+            }
+        ],
+
+        // 模板字符串( es6 模板字符串插值 )
+        "no-template-curly-in-string": [
+            "off"
+        ],
+
+        // 文件结尾
+        "eol-last": [
+            "warn",
+            "always"
+        ]
+
+    }
+
+}
