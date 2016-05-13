@@ -53,7 +53,7 @@
 		return sdk;
 	}
 
-	sdk.version = "1.0.5";
+	sdk.version = "1.0.6";
 	sdk.h5 = {};
 
 	/**
@@ -61,7 +61,7 @@
 	 * @returns {string}
 	 */
 	function getUrlAppKey(){
-		var 
+		var
 			scripts = document.getElementsByTagName("script"),
 			reqUrl,
 
@@ -76,14 +76,14 @@
 
 	/**
 	 * 调用 MC API
-	 * @param { String } action
+	 * @param { String } actionFlag
 	 * @param { *} message
 	 * @private
 	 */
-	function _callH5(action, message){
-		if(!action){ return }
+	function _callH5(actionFlag, message){
+		if(!actionFlag){ return }
 		parent.postMessage({
-			action : action.toUpperCase(),
+			action : actionFlag.toUpperCase(),
 			message: message
 		}, "*");
 	}
@@ -94,9 +94,14 @@
 		win.addEventListener("message", function(evt){
 
 			var
-				data = evt.data,
-				action = data.action,
-				message = data.message
+				_data = evt.data,
+				actionFlag = _data.action,
+
+				// 业务数据
+				message = _data.message,
+
+				// 是否保留 回调监听
+				isKeepListen = !!_data.isKeepListen
 			;
 
 			//console.log("receive message form [移动校园] --head:");
@@ -104,7 +109,7 @@
 
 			if(0 === _watchStack.length){ return }
 
-			if(AUTH_STATE !== AUTH_STATE_HASH["RESOLVED"] && "AUTH_SUCCESS" !== action){
+			if(AUTH_STATE !== AUTH_STATE_HASH["RESOLVED"] && "AUTH_SUCCESS" !== actionFlag){
 				return
 			}
 
@@ -120,12 +125,12 @@
 					if(currentAction !== listen.action){ continue }
 
 					listen.callback(message, listen);
-					if(listen.once){
+					if(listen.once && !isKeepListen){
 						listenStack.splice(len, 1);
 					}
 				}
 
-			})(_watchStack, action);
+			})(_watchStack, actionFlag);
 
 		});
 	}
@@ -137,7 +142,7 @@
 
 		AUTH_STATE = AUTH_STATE_HASH["PENDING"];
 
-		_callH5("auth",{
+		_callH5("auth", {
 			appKey: _appKey || getUrlAppKey(),
 			domain: location.origin
 		});
@@ -154,7 +159,7 @@
 
 		if("function" !== typeof fn){ return sdk }
 
-		switch (AUTH_STATE){
+		switch(AUTH_STATE){
 
 			case AUTH_STATE_HASH["RESOLVED"]:
 				fn(sdk);
@@ -175,14 +180,17 @@
 	/**
 	 * 调用 App API
 	 * @param { String } apiName
-	 * @param {*} [data]
+	 * @param { * } [data] 通信数据
 	 * @param { Function } [callback]
 	 */
 	sdk.h5.call = function(apiName, data, callback){
 
-		var isAuth;
+		var
+			isAuth,
+			_actionFlag
+		;
 
-		switch (AUTH_STATE){
+		switch(AUTH_STATE){
 			case AUTH_STATE_HASH["PRISTINE"]:
 				throw new Error("请确认你的 appKey 正确.");
 				break;
@@ -203,16 +211,21 @@
 
 		if(apiName && -1 !== APIs.indexOf(apiName.toUpperCase())){
 
-			if("function" === typeof  data){
+			// 没有传入 data 的情况
+			if("function" === typeof data){
 				callback = data;
 				data = undefined;
 			}
 
-			_callH5(apiName, data);
+			_actionFlag = apiName + "_!_" + (new Date).getTime();
 
-			sdk.h5.watchOnce(apiName, function(data){
-				callback(data);
-			});
+			_callH5(_actionFlag, data);
+
+			if("function" === typeof callback){
+				sdk.h5.watchOnce(_actionFlag, function(data){
+					callback(data);
+				});
+			}
 
 		}else{
 			throw new Error("未找到该 [" + apiName + "] API, 请确认你调用的 API .");
@@ -222,26 +235,28 @@
 
 	/**
 	 * 监听 APP 数据返回
-	 * @param { String } strAction
+	 * @param { String } strActionFlag
 	 * @param { Function } callback
 	 * @param { Object } [onf]
 	 * @param { Boolean } [onf.once] 仅执行一次
 	 * @returns {string}
 	 */
-	sdk.h5.watch = function(strAction, callback, onf){
+	sdk.h5.watch = function(strActionFlag, callback, onf){
 
 		var flag;
 
-		if("string" !== typeof strAction || "function" !== typeof callback){ return }
+		if("string" !== typeof strActionFlag || "function" !== typeof callback){ return }
 
 		onf = onf || {};
+
+		// 目前 flag 标识用于 "删除"
 		flag = onf.flag;
 		flag = flag || (new Date).getTime() + (Math.random() + "").substring(2, 4);
 
 		_watchStack.push({
 			once    : onf.once,
 			flag    : flag,
-			action  : strAction.toUpperCase(),
+			action  : strActionFlag.toUpperCase(),
 			callback: callback
 		});
 
@@ -252,11 +267,11 @@
 	/**
 	 * 同  sdk.h5.watch
 	 */
-	sdk.h5.watchOnce = function(strAction, listen, onf){
+	sdk.h5.watchOnce = function(strActionFlag, listen, onf){
 		onf = onf || {};
 		onf.once = true;
 
-		sdk.h5.watch(strAction, listen, onf);
+		sdk.h5.watch(strActionFlag, listen, onf);
 
 		return sdk;
 	};
