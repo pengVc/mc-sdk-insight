@@ -343,3 +343,33 @@
 	exports[sdkNamespace] = Object.create(sdk);
 
 })(this, window);
+
+(function(){
+
+	var
+		isIOS = -1 !== navigator.userAgent.indexOf("iPhone") || navigator.userAgent.indexOf("iPad"),
+		_elemStyle
+	;
+
+	// 解决 ios 下的 iframe 中的表单无法获取焦点的bug
+	if(isIOS){
+		document.addEventListener("touchend", function(evt){
+			var
+				tagName = evt.target.tagName.toUpperCase()
+			;
+
+			if(-1 === ["INPUT", "TEXTAREA"].indexOf(tagName)){
+				return
+			}
+			window.focus();
+			evt.target.focus();
+		}, false);
+
+		// 解决 ios iframe 不能滑动
+		_elemStyle = document.createElement("style");
+		_elemStyle.innerHTML = "body{position: absolute!important; top: 0; left: 0; right: 0; bottom: 0; overflow-y: auto!important; -webkit-overflow-scrolling: touch!important}";
+		document.head.appendChild(_elemStyle);
+	}
+
+
+})();
