@@ -3,7 +3,7 @@
  *
  * @description SDK.js For MobileCampus.Lantu 3rd Frame
  * @author Lantu FED TEAM
- * @version 1.0.5
+ * @version 1.0.7
  *
  */
 
@@ -53,7 +53,7 @@
 		return sdk;
 	}
 
-	sdk.version = "1.0.6";
+	sdk.version = "1.0.7";
 	sdk.h5 = {};
 
 	/**
@@ -217,7 +217,7 @@
 				data = undefined;
 			}
 
-			_actionFlag = apiName + "_!_" + (new Date).getTime();
+			_actionFlag = apiName + "_!_" + ((new Date).getTime() + "").slice(-6) + (Math.random() + "").slice(-6);
 
 			_callH5(_actionFlag, data);
 
