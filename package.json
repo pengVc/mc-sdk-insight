@@ -1,12 +1,35 @@
 {
   "name": "mc-sdk-insight",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "兰途移动校园 SDK源 输出工程",
+  "main": "src/index.js",
   "scripts": {
+    "dev": "node ./build.js --action dev",
+    "build": "npm run dev",
+    "build-prod": "node ./build.js --action build-project --production",
+    "prod": "npm run build-prod",
+    "deploy": "node ./build.js --action deploy --production",
+    "release": "npm run build-prod && npm run deploy",
+    "postinstall": "npm run git",
+    "git": "node ./build.js --action git"
   },
   "repository": {
     "type": "git",
     "url": "https://gitee.com/lantutech/mc-sdk-insight"
   },
-  "author": "LantuTech"
+  "author": "LantuTech",
+  "devDependencies": {
+    "@babel/core": "^7.0.0",
+    "@babel/plugin-transform-runtime": "^7.0.0",
+    "@babel/preset-env": "^7.0.0",
+    "babel-loader": "^8.0.0",
+    "clean-webpack-plugin": "^0.1.19",
+    "inquirer": "^6.2.0",
+    "moment": "^2.22.2",
+    "shelljs": "^0.8.2",
+    "webpack": "^4.17.1"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.0.0"
+  }
 }
