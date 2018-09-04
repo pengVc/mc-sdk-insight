@@ -1,153 +1,117 @@
 /**
  * Created by Tan on 2015/7/29.
+ * Update by Vc on 2018/8/29.
  *
- * @description SDK.js For MobileCampus.Lantu 3rd Frame
+ * @description SDK.js For MobileCampus.Lantu 3rd Frame & IAB
  * @author Lantu FED TEAM
- * @version 1.0.7
+ * @version 2.0.1
  *
  */
 
-;(function(exports, win, undefined){
+import AuthStateMgr, { AUTH_STATE_TYPE } from "./auth";
 
-	"use strict";
+import BridgeIab from "./bridge/iab";
+import BridgeIFrame from "./bridge/iframe";
 
-	var
-		conflict,
+import { isIos, generateUuid, getUrlQsByRuntimeScript } from "./utils.js";
+import UIWebViewHack from "./UIWebViewHack";
 
-		sdkNamespace = "MCK",
+const
+	SDK_VERSION = $_project.version,
+	sdkNamespace = "MCK"
+;
 
-		_appKey,
+const
+	isTopMode = top === window,
+	isIFrameMode = top !== window
+;
 
-		AUTH_STATE,
-		AUTH_STATE_HASH,
+/**
+ *
+ * @returns sdk
+ * @private
+ */
+export default function sdk(){
+	return sdk;
+}
 
-		_watchStack = [],
-		_readyStack = [],
+((window, undefined) => {
+
+	const
+		iAuthState = new AuthStateMgr(),
+
+		_watchActionStack = [],
+
+		_waitingReadyStack = [],
+
 		APIs = []
 	;
 
-	conflict = exports[sdkNamespace];
+	let
+		conflict = window[sdkNamespace],
 
-	AUTH_STATE_HASH = {
+		appKey = getUrlQsByRuntimeScript("appkey"),
 
-		// 未验证
-		"PRISTINE": 0,
+		shouldLazyInit = null !== getUrlQsByRuntimeScript("lazy"),
 
-		// 已发送验证, 但还未返回
-		"PENDING" : 1,
+		bridge
+	;
 
-		// 验证失败
-		"REJECTED": 2,
-
-		// 验证成功
-		"RESOLVED": 3
-	};
-	AUTH_STATE = AUTH_STATE_HASH["PRISTINE"];
-
-	/**
-	 *
-	 * @returns sdk
-	 * @private
-	 */
-	function sdk(){
-		return sdk;
+	if(isTopMode){
+		bridge = new BridgeIab();
 	}
 
-	sdk.version = "1.0.7";
+	if(isIFrameMode){
+		bridge = new BridgeIFrame();
+	}
+
+	sdk.version = SDK_VERSION;
 	sdk.h5 = {};
 
-	/**
-	 * 自动获取 appkey
-	 * @returns {string}
-	 */
-	function getUrlAppKey(){
-		var
-			scripts = document.getElementsByTagName("script"),
-			reqUrl,
+	watchDomainMessage();
 
-			raw
+	if(!shouldLazyInit){
+		setTimeout(auth, 520);
+	}
+
+	// 监听验证成功通信
+	watchOnce("AUTH_SUCCESS", (isResolved) => {
+
+		if(!isResolved){
+			_waitingReadyStack.length = 0;
+			iAuthState.setState(AUTH_STATE_TYPE["REJECTED"]);
+			return;
+		}
+
+		iAuthState.setState(AUTH_STATE_TYPE["RESOLVED"]);
+
+	});
+
+	watchOnce("AVAILABLE_API", (api) => {
+
+		let _sdk;
+
+		APIs.length = 0;
+		APIs.push.apply(APIs, api);
+
+		if(0 === _waitingReadyStack.length){ return }
+
+		_sdk = window[sdkNamespace];
+		_sdk = sdk.isPrototypeOf(_sdk) ?
+			_sdk :
+			Object.create(sdk)
 		;
 
-		reqUrl = scripts[scripts.length - 1].src;
-		raw = reqUrl.match(/[\?&]appkey=([^&]+)/i);
-
-		return raw[1];
-	}
-
-	/**
-	 * 调用 MC API
-	 * @param { String } actionFlag
-	 * @param { *} message
-	 * @private
-	 */
-	function _callH5(actionFlag, message){
-		if(!actionFlag){ return }
-		parent.postMessage({
-			action : actionFlag.toUpperCase(),
-			message: message
-		}, "*");
-	}
-
-	_watchApp();
-
-	function _watchApp(){
-		win.addEventListener("message", function(evt){
-
-			var
-				_data = evt.data,
-				actionFlag = _data.action,
-
-				// 业务数据
-				message = _data.message,
-
-				// 是否保留 回调监听
-				isKeepListen = !!_data.isKeepListen
-			;
-
-			//console.log("receive message form [移动校园] --head:");
-			//console.log(evt);
-
-			if(0 === _watchStack.length){ return }
-
-			if(AUTH_STATE !== AUTH_STATE_HASH["RESOLVED"] && "AUTH_SUCCESS" !== actionFlag){
-				return
-			}
-
-			(function(listenStack, currentAction){
-
-				var
-					len = listenStack.length,
-					listen
-				;
-
-				while(len--){
-					listen = listenStack[len];
-					if(currentAction !== listen.action){ continue }
-
-					listen.callback(message, listen);
-					if(listen.once && !isKeepListen){
-						listenStack.splice(len, 1);
-					}
-				}
-
-			})(_watchStack, actionFlag);
-
+		_waitingReadyStack.forEach((fn) => {
+			fn.call(null, _sdk);
 		});
-	}
+
+	});
 
 	/**
 	 * 验证 访问 APP 权限
 	 */
-	sdk.auth = function(){
-
-		AUTH_STATE = AUTH_STATE_HASH["PENDING"];
-
-		_callH5("auth", {
-			appKey: _appKey || getUrlAppKey(),
-			domain: location.origin
-		});
-
-	};
+	sdk.auth = auth;
 
 	/**
 	 * 等待 app 验证通过之后, 执行回调栈
@@ -155,27 +119,7 @@
 	 * @param { Function } [fallback]
 	 * @returns { sdk }
 	 */
-	sdk.ready = function(fn, fallback){
-
-		if("function" !== typeof fn){ return sdk }
-
-		switch(AUTH_STATE){
-
-			case AUTH_STATE_HASH["RESOLVED"]:
-				fn(sdk);
-				break;
-
-			case AUTH_STATE_HASH["PRISTINE"]:
-			case AUTH_STATE_HASH["PENDING"]:
-				_readyStack.push(fn);
-				break;
-
-			default:
-				"function" === typeof fallback && fallback();
-		}
-
-		return sdk;
-	};
+	sdk.ready = ready;
 
 	/**
 	 * 调用 App API
@@ -183,23 +127,143 @@
 	 * @param { * } [data] 通信数据
 	 * @param { Function } [callback]
 	 */
-	sdk.h5.call = function(apiName, data, callback){
+	sdk.h5.call = callDomain;
 
-		var
+	/**
+	 * 监听 APP 数据返回
+	 * @param { String } strActionFlag
+	 * @param { Function } callback
+	 * @param { Object } [onf]
+	 * @param { Boolean } [onf.once] 仅执行一次
+	 * @returns {string}
+	 */
+	sdk.h5.watch = watch;
+
+	/**
+	 * 同  sdk.h5.watch
+	 */
+	sdk.h5.watchOnce = watchOnce;
+
+	/**
+	 * 监听APP 数据返回
+	 */
+	sdk.h5.unWatch = unWatch;
+
+	sdk.h5.getApi = getApi;
+
+	sdk.conflict = rollbackConflict;
+
+	function watchDomainMessage(){
+
+		bridge.watchDomainMessage((res) =>{
+
+			const {
+				actionFlag,
+				message,
+				isKeepListen
+			} = res;
+
+			if(0 === _watchActionStack.length){
+				return
+			}
+
+			if(iAuthState.getState() !== AUTH_STATE_TYPE["RESOLVED"] && "AUTH_SUCCESS" !== actionFlag){
+				return
+			}
+
+			((listenerList, resCurrentAction) => {
+
+				let
+					len = listenerList.length,
+					listenerItem
+				;
+
+				while(len--){
+
+					listenerItem = listenerList[len];
+					if(resCurrentAction !== listenerItem.action){ continue }
+
+					listenerItem.callback(message, listenerItem);
+
+					if(listenerItem.once && !isKeepListen){
+						listenerList.splice(len, 1);
+					}
+
+				}
+
+			})(_watchActionStack, actionFlag);
+
+		});
+
+	}
+
+	/**
+	 * @param { String } [appKeyOverWrite]
+	 */
+	function auth(appKeyOverWrite){
+
+		if(appKeyOverWrite){
+			appKey = appKeyOverWrite;
+		}
+
+		if(!appKey){
+			return alert("没有获取到 appKey .\n请按照 https://gitee.com/lantutech/mc-sdk 排查.");
+		}
+
+		iAuthState.setState(AUTH_STATE_TYPE["PENDING"]);
+
+		bridge.callDomain("auth", {
+			appKey: appKey,
+			domain: location.origin
+		});
+
+	}
+
+	/**
+	 *
+	 * @param { Function } fn
+	 * @param { Function } [fallback]
+	 * @return {function(): function()}
+	 */
+	function ready(fn, fallback){
+
+		if("function" !== typeof fn){ return sdk }
+
+		switch(iAuthState.getState()){
+
+			case AUTH_STATE_TYPE["RESOLVED"]:
+				fn(sdk);
+				break;
+
+			case AUTH_STATE_TYPE["PRISTINE"]:
+			case AUTH_STATE_TYPE["PENDING"]:
+				_waitingReadyStack.push(fn);
+				break;
+
+			default:
+				"function" === typeof fallback && fallback();
+		}
+
+		return sdk;
+	}
+
+	function callDomain(apiName, data, callback){
+
+		let
 			isAuth,
 			_actionFlag
 		;
 
-		switch(AUTH_STATE){
-			case AUTH_STATE_HASH["PRISTINE"]:
+		switch(iAuthState.getState()){
+			case AUTH_STATE_TYPE["PRISTINE"]:
 				throw new Error("请确认你的 appKey 正确.");
 				break;
 
-			case AUTH_STATE_HASH["PENDING"]:
+			case AUTH_STATE_TYPE["PENDING"]:
 				console.log("仍在验证中.. 请使用 `MCK.ready(fn)` 注册回调.");
 				break;
 
-			case AUTH_STATE_HASH["RESOLVED"]:
+			case AUTH_STATE_TYPE["RESOLVED"]:
 				isAuth = true;
 				break;
 
@@ -217,12 +281,12 @@
 				data = undefined;
 			}
 
-			_actionFlag = apiName + "_!_" + ((new Date).getTime() + "").slice(-6) + (Math.random() + "").slice(-6);
+			_actionFlag = apiName + "_!_" + generateUuid();
 
-			_callH5(_actionFlag, data);
+			bridge.callDomain(_actionFlag, data);
 
 			if("function" === typeof callback){
-				sdk.h5.watchOnce(_actionFlag, function(data){
+				sdk.h5.watchOnce(_actionFlag, (data) => {
 					callback(data);
 				});
 			}
@@ -231,145 +295,81 @@
 			throw new Error("未找到该 [" + apiName + "] API, 请确认你调用的 API .");
 		}
 
-	};
+	}
 
 	/**
-	 * 监听 APP 数据返回
+	 *
 	 * @param { String } strActionFlag
 	 * @param { Function } callback
 	 * @param { Object } [onf]
-	 * @param { Boolean } [onf.once] 仅执行一次
-	 * @returns {string}
+	 * @param { String } onf.flag
+	 * @param { Boolean } onf.once
+	 *
+	 * @return {string|*|string}
 	 */
-	sdk.h5.watch = function(strActionFlag, callback, onf){
+	function watch(strActionFlag, callback, onf){
 
-		var flag;
+		let uuidFlag;
 
 		if("string" !== typeof strActionFlag || "function" !== typeof callback){ return }
 
 		onf = onf || {};
 
 		// 目前 flag 标识用于 "删除"
-		flag = onf.flag;
-		flag = flag || (new Date).getTime() + (Math.random() + "").substring(2, 4);
+		uuidFlag = onf.flag || generateUuid();
 
-		_watchStack.push({
+		_watchActionStack.push({
 			once    : onf.once,
-			flag    : flag,
+			flag    : uuidFlag,
 			action  : strActionFlag.toUpperCase(),
 			callback: callback
 		});
 
-		return flag;
+		return uuidFlag;
 
-	};
+	}
 
-	/**
-	 * 同  sdk.h5.watch
-	 */
-	sdk.h5.watchOnce = function(strActionFlag, listen, onf){
+	function watchOnce(strActionFlag, listen, onf){
 		onf = onf || {};
 		onf.once = true;
 
-		sdk.h5.watch(strActionFlag, listen, onf);
+		watch(strActionFlag, listen, onf);
 
 		return sdk;
-	};
+	}
 
-	/**
-	 * 监听APP 数据返回
-	 */
-	sdk.h5.unWatch = function(flag){
+	function unWatch(uuidFlag){
 
-		var
-			len = _watchStack.length
+		let
+			len = _watchActionStack.length
 		;
 
 		while(len--){
-			if(flag === _watchStack[len].flag){
-				_watchStack.splice(len, 1);
+			if(uuidFlag === _watchActionStack[len].flag){
+				_watchActionStack.splice(len, 1);
 				break;
 			}
 		}
 
 		return sdk;
-	};
-
-	sdk.h5.getApi = function(){
-		return APIs.concat();
-	};
-
-	sdk.conflict = function(){
-		exports[sdkNamespace] = conflict;
-		conflict = null;
-		return Object.create(sdk);
-	};
-
-	sdk.auth();
-
-	// 监听验证成功通信
-	sdk.h5.watchOnce("AUTH_SUCCESS", function(isResolved){
-
-		if(!isResolved){
-			_readyStack.length = 0;
-			AUTH_STATE = AUTH_STATE_HASH["REJECTED"];
-			return;
-		}
-
-		AUTH_STATE = AUTH_STATE_HASH["RESOLVED"];
-
-	});
-
-	sdk.h5.watchOnce("AVAILABLE_API", function(api){
-
-		var _sdk;
-
-		APIs.push.apply(APIs, api);
-
-		if(0 === _readyStack.length){ return }
-
-		_sdk = exports[sdkNamespace];
-		_sdk = sdk.isPrototypeOf(_sdk) ?
-			_sdk :
-			Object.create(sdk)
-		;
-
-		_readyStack.forEach(function(fn){
-			fn.call(null, _sdk);
-		});
-
-	});
-
-	exports[sdkNamespace] = Object.create(sdk);
-
-})(this, window);
-
-(function(){
-
-	var
-		isIOS = -1 !== navigator.userAgent.indexOf("iPhone") || navigator.userAgent.indexOf("iPad"),
-		_elemStyle
-	;
-
-	// 解决 ios 下的 iframe 中的表单无法获取焦点的bug
-	if(isIOS){
-		document.addEventListener("touchend", function(evt){
-			var
-				tagName = evt.target.tagName.toUpperCase()
-			;
-
-			if(-1 === ["INPUT", "TEXTAREA"].indexOf(tagName)){
-				return
-			}
-			window.focus();
-			evt.target.focus();
-		}, false);
-
-		// 解决 ios iframe 不能滑动
-		_elemStyle = document.createElement("style");
-		_elemStyle.innerHTML = "body{position: absolute!important; top: 0; left: 0; right: 0; bottom: 0; overflow-y: auto!important; -webkit-overflow-scrolling: touch!important}";
-		document.head.appendChild(_elemStyle);
 	}
 
+	function getApi(){
+		return APIs.concat();
+	}
 
-})();
+	function rollbackConflict(){
+		window[sdkNamespace] = conflict;
+		conflict = null;
+		return Object.create(sdk);
+	}
+
+	window[sdkNamespace] = Object.create(sdk);
+
+})(window);
+
+
+// 解决 ios 下的 iframe 中的表单无法获取焦点的bug
+if(isIFrameMode && isIos()){
+	UIWebViewHack();
+}
