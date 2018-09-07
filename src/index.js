@@ -4,7 +4,6 @@
  *
  * @description SDK.js For MobileCampus.Lantu 3rd Frame & IAB
  * @author Lantu FED TEAM
- * @version 2.0.1
  *
  */
 
@@ -52,8 +51,6 @@ export default function sdk(){
 
 		appKey = getUrlQsByRuntimeScript("appkey"),
 
-		shouldLazyInit = null !== getUrlQsByRuntimeScript("lazy"),
-
 		bridge
 	;
 
@@ -70,7 +67,7 @@ export default function sdk(){
 
 	watchDomainMessage();
 
-	if(!shouldLazyInit){
+	if(appKey){
 		setTimeout(auth, 520);
 	}
 
